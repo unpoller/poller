@@ -5,8 +5,8 @@ import (
 	"log"
 )
 
-// Log the command that called these commands.
-const callDepth = 2
+// Log the command that called the intermediate logger that called these commands.
+const callDepth = 3
 
 // Logger is passed into input packages so they may write logs.
 type Logger interface {
