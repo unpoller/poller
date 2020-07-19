@@ -3,6 +3,8 @@ package webserver
 import (
 	"net/http"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -34,23 +36,31 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Returns poller configs and/or plugins. /api/v1/config.
+// Returns poller configs and/or plugins. Returns compiled go package names and versions. /api/v1/config.
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
+
+	bi, ok := debug.ReadBuildInfo()
+	if !ok || bi == nil {
+		bi = &debug.BuildInfo{Deps: []*debug.Module{}}
+	}
 
 	switch vars["sub"] {
 	case "":
 		data := map[string]interface{}{
-			"inputs":  s.Collect.Inputs(),
-			"outputs": s.Collect.Outputs(),
+			"inputs":  s.Collect.Inputs(""),
+			"outputs": s.Collect.Outputs(""),
 			"poller":  s.Collect.Poller(),
+			"godep":   append(bi.Deps, &bi.Main),
+			"gover":   runtime.Version(),
+			"gopkg":   bi.Path,
 			"uptime":  int(time.Since(s.start).Round(time.Second).Seconds()),
 		}
 		s.handleJSON(w, data)
 	case "plugins":
-		data := map[string][]string{
-			"inputs":  s.Collect.Inputs(),
-			"outputs": s.Collect.Outputs(),
+		data := map[string]interface{}{
+			"inputs":  s.Collect.Inputs(""),
+			"outputs": s.Collect.Outputs(""),
 		}
 		s.handleJSON(w, data)
 	default:

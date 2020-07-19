@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// WebServer Constants.
 const (
 	// PluginName identifies this output plugin.
 	PluginName = "WebServer"
@@ -58,6 +60,7 @@ func init() { // nolint: gochecknoinits
 
 	poller.NewOutput(&poller.Output{
 		Name:   PluginName,
+		Path:   reflect.TypeOf(Server{}).PkgPath(),
 		Config: s,
 		Method: s.Run,
 	})
@@ -73,8 +76,6 @@ func (s *Server) Run(c poller.Collect) error {
 	if _, err := os.Stat(s.HTMLPath); err != nil {
 		return errors.Wrap(err, "problem with HTML path")
 	}
-
-	UpdateOutput(&Output{Name: PluginName, Config: s.Config})
 
 	return s.Start()
 }

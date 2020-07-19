@@ -20,14 +20,15 @@ type Collect interface {
 	Events(*Filter) (*Events, error)
 	// These get used by the webserver output plugin.
 	Poller() Poller
-	Inputs() []string
-	Outputs() []string
+	Inputs(name string) map[string]string
+	Outputs(name string) map[string]string
 }
 
 // Output defines the output data for a metric exporter like influx or prometheus.
 // Output packages should call NewOutput with this struct in init().
 type Output struct {
 	Name   string
+	Path   string
 	Config interface{}         // Each config is passed into an unmarshaller later.
 	Method func(Collect) error // Called on startup for each configured output.
 }
@@ -39,6 +40,14 @@ func NewOutput(o *Output) {
 
 	if o == nil || o.Method == nil {
 		panic("nil output or method passed to poller.NewOutput")
+	} else if o.Name == "" {
+		panic("output without name or path passed to poller.NewOutput")
+	}
+
+	for i := range outputs {
+		if o.Name == outputs[i].Name {
+			panic("duplicate output plugin name: " + o.Name)
+		}
 	}
 
 	outputs = append(outputs, o)
@@ -90,12 +99,16 @@ func (u *UnifiPoller) runOutputMethods() (int, chan error) {
 }
 
 // Outputs allows other output plugins to see the list of loaded output plugins.
-func (u *UnifiPoller) Outputs() (names []string) {
+func (u *UnifiPoller) Outputs(name string) map[string]string {
 	outputSync.RLock()
 	defer outputSync.RUnlock()
 
-	for i := range outputs {
-		names = append(names, outputs[i].Name)
+	names := make(map[string]string)
+
+	for _, o := range outputs {
+		if name == "" || name == o.Name {
+			names[o.Name] = o.Path
+		}
 	}
 
 	return names

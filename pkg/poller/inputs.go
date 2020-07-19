@@ -23,6 +23,7 @@ type Input interface {
 // InputPlugin describes an input plugin's consumable interface.
 type InputPlugin struct {
 	Name   string
+	Path   string
 	Config interface{} // Each config is passed into an unmarshaller later.
 	Input
 }
@@ -49,8 +50,16 @@ func NewInput(i *InputPlugin) {
 	inputSync.Lock()
 	defer inputSync.Unlock()
 
-	if i == nil || i.Input == nil {
-		panic("nil output or method passed to poller.NewOutput")
+	if i == nil || i.Input == nil || i.Name == "" {
+		panic("nil input or method passed to poller.NewInput")
+	} else if i.Name == "" {
+		panic("input without name or path passed to poller.NewInput")
+	}
+
+	for _, input := range inputs {
+		if i.Name == input.Name {
+			panic("duplicate input plugin name: " + i.Name)
+		}
 	}
 
 	inputs = append(inputs, i)
@@ -80,8 +89,7 @@ func (u *UnifiPoller) Events(filter *Filter) (*Events, error) {
 
 	for _, input := range inputs {
 		if filter != nil &&
-			filter.Name != "" &&
-			!strings.EqualFold(input.Name, filter.Name) {
+			filter.Name != "" && !strings.EqualFold(input.Name, filter.Name) {
 			continue
 		}
 
@@ -107,8 +115,7 @@ func (u *UnifiPoller) Metrics(filter *Filter) (*Metrics, error) {
 
 	for _, input := range inputs {
 		if filter != nil &&
-			filter.Name != "" &&
-			!strings.EqualFold(input.Name, filter.Name) {
+			filter.Name != "" && !strings.EqualFold(input.Name, filter.Name) {
 			continue
 		}
 
@@ -143,12 +150,16 @@ func AppendMetrics(existing *Metrics, m *Metrics) *Metrics {
 }
 
 // Inputs allows output plugins to see the list of loaded input plugins.
-func (u *UnifiPoller) Inputs() (names []string) {
+func (u *UnifiPoller) Inputs(name string) map[string]string {
 	inputSync.RLock()
 	defer inputSync.RUnlock()
 
-	for i := range inputs {
-		names = append(names, inputs[i].Name)
+	names := make(map[string]string)
+
+	for _, i := range inputs {
+		if name == "" || name == i.Name {
+			names[i.Name] = i.Path
+		}
 	}
 
 	return names
