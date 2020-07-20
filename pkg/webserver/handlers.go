@@ -2,6 +2,7 @@ package webserver
 
 import (
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
@@ -43,6 +44,10 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 
 	switch vars["sub"] {
 	case "":
+		var m runtime.MemStats
+
+		runtime.ReadMemStats(&m)
+
 		p := s.getPlugins()
 		data := map[string]interface{}{
 			"inputs":  p["inputs"],
@@ -55,6 +60,13 @@ func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 			"cpus":    runtime.NumCPU(),
 			"arch":    runtime.GOOS + " " + runtime.GOARCH,
 			"uptime":  int(time.Since(s.start).Round(time.Second).Seconds()),
+			"uid":     os.Getuid(),
+			"pid":     os.Getpid(),
+			"gid":     os.Getgid(),
+			"malloc":  m.Alloc,
+			"mtalloc": m.TotalAlloc,
+			"memsys":  m.Sys,
+			"numgc":   m.NumGC,
 		}
 		s.handleJSON(w, data)
 	case "plugins":
