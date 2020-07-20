@@ -18,7 +18,7 @@ import (
 // WebServer Constants.
 const (
 	// PluginName identifies this output plugin.
-	PluginName = "WebServer"
+	PluginName = "webserver"
 	// DefaultPort is the default web http port.
 	DefaultPort = 37288
 	// DefaultEvents is the default number of events stored per plugin.
