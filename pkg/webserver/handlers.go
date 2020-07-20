@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/common/version"
 )
 
 /* This file has the methods that pass out actual content. */
@@ -40,32 +41,62 @@ func (s *Server) handleStatic(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleConfig(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
+	switch vars["sub"] {
+	case "":
+		p := s.getPlugins()
+		data := map[string]interface{}{
+			"inputs":  p["inputs"],
+			"outputs": p["outputs"],
+			"poller":  s.Collect.Poller(),
+			"gover":   runtime.Version(),
+			"version": version.Version,
+			"branch":  version.Branch,
+			"built":   version.BuildDate,
+			"cpus":    runtime.NumCPU(),
+			"arch":    runtime.GOOS + " " + runtime.GOARCH,
+			"uptime":  int(time.Since(s.start).Round(time.Second).Seconds()),
+		}
+		s.handleJSON(w, data)
+	case "plugins":
+		s.handleJSON(w, s.getPlugins())
+	default:
+		s.handleMissing(w, r)
+	}
+}
+
+// getPlugins merges the plugin names, paths and versions from input data and runtime data.
+func (s *Server) getPlugins() map[string]map[string]interface{} {
+	type plugin struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+		Path    string `json:"path"`
+	}
+
 	bi, ok := debug.ReadBuildInfo()
 	if !ok || bi == nil {
 		bi = &debug.BuildInfo{Deps: []*debug.Module{}}
 	}
 
-	switch vars["sub"] {
-	case "":
-		data := map[string]interface{}{
-			"inputs":  s.Collect.Inputs(""),
-			"outputs": s.Collect.Outputs(""),
-			"poller":  s.Collect.Poller(),
-			"godep":   append(bi.Deps, &bi.Main),
-			"gover":   runtime.Version(),
-			"gopkg":   bi.Path,
-			"uptime":  int(time.Since(s.start).Round(time.Second).Seconds()),
-		}
-		s.handleJSON(w, data)
-	case "plugins":
-		data := map[string]interface{}{
-			"inputs":  s.Collect.Inputs(""),
-			"outputs": s.Collect.Outputs(""),
-		}
-		s.handleJSON(w, data)
-	default:
-		s.handleMissing(w, r)
+	i := map[string]map[string]interface{}{
+		"inputs":  make(map[string]interface{}),
+		"outputs": make(map[string]interface{}),
 	}
+
+	parse := func(name string, values map[string]string) {
+		for k, v := range values {
+			for l := range bi.Deps {
+				if bi.Deps[l].Path == v {
+					i[name][k] = plugin{Name: k, Path: v, Version: bi.Deps[l].Version}
+					break
+				}
+			}
+		}
+	}
+
+	parse("inputs", s.Collect.Inputs(""))
+	parse("outputs", s.Collect.Outputs(""))
+
+	return i
 }
 
 // Returns an output plugin's data: /api/v1/output/{output}.
