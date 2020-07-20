@@ -77,6 +77,8 @@ func (s *Server) Run(c poller.Collect) error {
 		return errors.Wrap(err, "problem with HTML path")
 	}
 
+	UpdateOutput(&Output{Name: PluginName, Config: s.Config})
+
 	return s.Start()
 }
 
