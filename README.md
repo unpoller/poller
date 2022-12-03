@@ -1,5 +1,7 @@
 # poller
 
+Moved to https://github.com/unpoller/unpoller/tree/master/pkg/poller
+
 ## UniFi Poller Core
 
 This module ties the inputs together with the outputs.
